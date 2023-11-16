@@ -29,8 +29,8 @@ const (
 	// Master sets the address of K8s master
 	Master = "master"
 
-	// CloudCoreIPPort sets the IP and port of KubeEdge cloud component
-	CloudCoreIPPort = "cloudcore-ipport"
+	// CloudCoreIP sets the IP and port of KubeEdge cloud component
+	CloudCoreIP = "cloudcore-ip"
 
 	// EdgeNodeName is KubeEdge node unique identification string
 	EdgeNodeName = "edgenode-name"
@@ -99,6 +99,8 @@ const (
 	// Helm action
 	HelmInstallAction  = "install"
 	HelmManifestAction = "manifest"
+
+	HubType = "hubtype"
 
 	CmdGetDNSIP         = "cat /etc/resolv.conf | grep nameserver | grep -v -E ':|#' | awk '{print $2}' | head -n1"
 	CmdGetStatusDocker  = "systemctl status docker |grep Active | awk '{print $2}'"

@@ -19,6 +19,7 @@ package util
 import (
 	"errors"
 	"fmt"
+	"github.com/kubeedge/viaduct/pkg/api"
 	"net"
 	"os"
 	"strconv"
@@ -45,6 +46,7 @@ type KubeEdgeInstTool struct {
 	CGroupDriver          string
 	TarballPath           string
 	Labels                []string
+	HubType               string
 }
 
 // InstallTools downloads KubeEdge for the specified version
@@ -92,7 +94,20 @@ func (ku *KubeEdgeInstTool) createEdgeConfigFiles() error {
 	}
 
 	edgeCoreConfig := v1alpha2.NewDefaultEdgeCoreConfig()
-	edgeCoreConfig.Modules.EdgeHub.WebSocket.Server = ku.CloudCoreIP
+	edgeCoreConfig.Modules.EdgeHub.Quic.Server = net.JoinHostPort(ku.CloudCoreIP, strconv.Itoa(constants.DefaultQuicPort))
+	edgeCoreConfig.Modules.EdgeHub.WebSocket.Server = net.JoinHostPort(ku.CloudCoreIP, strconv.Itoa(constants.DefaultWebSocketPort))
+	if ku.HubType != "" {
+		switch ku.HubType {
+		case api.ProtocolTypeQuic:
+			edgeCoreConfig.Modules.EdgeHub.Quic.Enable = true
+			edgeCoreConfig.Modules.EdgeHub.WebSocket.Enable = false
+		case api.ProtocolTypeWS:
+			edgeCoreConfig.Modules.EdgeHub.Quic.Enable = false
+			edgeCoreConfig.Modules.EdgeHub.WebSocket.Enable = true
+		default:
+			return fmt.Errorf("unsupported hub type: %s", ku.HubType)
+		}
+	}
 
 	if ku.EdgeNodeName != "" {
 		edgeCoreConfig.Modules.Edged.HostnameOverride = ku.EdgeNodeName
@@ -118,13 +133,12 @@ func (ku *KubeEdgeInstTool) createEdgeConfigFiles() error {
 	if ku.Token != "" {
 		edgeCoreConfig.Modules.EdgeHub.Token = ku.Token
 	}
-	cloudCoreIP := strings.Split(ku.CloudCoreIP, ":")[0]
 	if ku.CertPort != "" {
-		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + cloudCoreIP + ":" + ku.CertPort
+		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + ku.CloudCoreIP + ":" + ku.CertPort
 	} else {
-		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + cloudCoreIP + ":10002"
+		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + ku.CloudCoreIP + ":10002"
 	}
-	edgeCoreConfig.Modules.EdgeStream.TunnelServer = net.JoinHostPort(cloudCoreIP, strconv.Itoa(constants.DefaultTunnelPort))
+	edgeCoreConfig.Modules.EdgeStream.TunnelServer = net.JoinHostPort(ku.CloudCoreIP, strconv.Itoa(constants.DefaultTunnelPort))
 
 	if len(ku.Labels) >= 1 {
 		labelsMap := make(map[string]string)

@@ -119,7 +119,7 @@ func Add2EdgeToolsList(toolList map[string]types.ToolsInstaller, flagData map[st
 		Common: util.Common{
 			ToolVersion: semver.MustParse(kubeVer),
 		},
-		CloudCoreIP:           joinOptions.CloudCoreIPPort,
+		CloudCoreIP:           joinOptions.CloudCoreIP,
 		EdgeNodeName:          joinOptions.EdgeNodeName,
 		RuntimeType:           joinOptions.RuntimeType,
 		CertPath:              joinOptions.CertPath,
@@ -129,6 +129,7 @@ func Add2EdgeToolsList(toolList map[string]types.ToolsInstaller, flagData map[st
 		CGroupDriver:          joinOptions.CGroupDriver,
 		TarballPath:           joinOptions.TarballPath,
 		Labels:                joinOptions.Labels,
+		HubType:               joinOptions.HubType,
 	}
 
 	toolList["MQTT"] = &util.MQTTInstTool{}

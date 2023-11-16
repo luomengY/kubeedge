@@ -41,6 +41,7 @@ import (
 	"github.com/kubeedge/kubeedge/pkg/apis/componentconfig/edgecore/v1alpha2"
 	"github.com/kubeedge/kubeedge/pkg/apis/componentconfig/edgecore/v1alpha2/validation"
 	pkgutil "github.com/kubeedge/kubeedge/pkg/util"
+	"github.com/kubeedge/viaduct/pkg/api"
 )
 
 func AddJoinOtherFlags(cmd *cobra.Command, joinOptions *common.JoinOptions) {
@@ -51,10 +52,10 @@ func AddJoinOtherFlags(cmd *cobra.Command, joinOptions *common.JoinOptions) {
 	cmd.Flags().StringVar(&joinOptions.CertPath, common.CertPath, joinOptions.CertPath,
 		fmt.Sprintf("The certPath used by edgecore, the default value is %s", common.DefaultCertPath))
 
-	cmd.Flags().StringVarP(&joinOptions.CloudCoreIPPort, common.CloudCoreIPPort, "e", joinOptions.CloudCoreIPPort,
+	cmd.Flags().StringVarP(&joinOptions.CloudCoreIP, common.CloudCoreIP, "e", joinOptions.CloudCoreIP,
 		"IP:Port address of KubeEdge CloudCore")
 
-	if err := cmd.MarkFlagRequired(common.CloudCoreIPPort); err != nil {
+	if err := cmd.MarkFlagRequired(common.CloudCoreIP); err != nil {
 		fmt.Printf("mark flag required failed with error: %v\n", err)
 	}
 
@@ -72,6 +73,9 @@ func AddJoinOtherFlags(cmd *cobra.Command, joinOptions *common.JoinOptions) {
 
 	cmd.Flags().StringSliceVarP(&joinOptions.Labels, common.Labels, "l", joinOptions.Labels,
 		`Use this key to set the customized labels for node, you can input customized labels like key1=value1,key2=value2`)
+
+	cmd.Flags().StringVar(&joinOptions.HubType, common.HubType, joinOptions.HubType,
+		`Use this key to decide which communication protocol the edge node adopts,The default is websocket`)
 }
 
 func createEdgeConfigFiles(opt *common.JoinOptions) error {
@@ -102,7 +106,20 @@ func createEdgeConfigFiles(opt *common.JoinOptions) error {
 		edgeCoreConfig = v1alpha2.NewDefaultEdgeCoreConfig()
 	}
 
-	edgeCoreConfig.Modules.EdgeHub.WebSocket.Server = opt.CloudCoreIPPort
+	edgeCoreConfig.Modules.EdgeHub.Quic.Server = net.JoinHostPort(opt.CloudCoreIP, strconv.Itoa(constants.DefaultQuicPort))
+	edgeCoreConfig.Modules.EdgeHub.WebSocket.Server = net.JoinHostPort(opt.CloudCoreIP, strconv.Itoa(constants.DefaultWebSocketPort))
+	if opt.HubType != "" {
+		switch opt.HubType {
+		case api.ProtocolTypeQuic:
+			edgeCoreConfig.Modules.EdgeHub.Quic.Enable = true
+			edgeCoreConfig.Modules.EdgeHub.WebSocket.Enable = false
+		case api.ProtocolTypeWS:
+			edgeCoreConfig.Modules.EdgeHub.Quic.Enable = false
+			edgeCoreConfig.Modules.EdgeHub.WebSocket.Enable = true
+		default:
+			return fmt.Errorf("unsupported hub type: %s", opt.HubType)
+		}
+	}
 	// TODO: remove this after release 1.14
 	// this is for keeping backward compatibility
 	// don't save token in configuration edgecore.yaml
@@ -121,16 +138,12 @@ func createEdgeConfigFiles(opt *common.JoinOptions) error {
 		edgeCoreConfig.Modules.Edged.RemoteImageEndpoint = opt.RemoteRuntimeEndpoint
 	}
 
-	host, _, err := net.SplitHostPort(opt.CloudCoreIPPort)
-	if err != nil {
-		return fmt.Errorf("get current host and port failed: %v", err)
-	}
 	if opt.CertPort != "" {
-		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + net.JoinHostPort(host, opt.CertPort)
+		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + net.JoinHostPort(opt.CloudCoreIP, opt.CertPort)
 	} else {
-		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + net.JoinHostPort(host, "10002")
+		edgeCoreConfig.Modules.EdgeHub.HTTPServer = "https://" + net.JoinHostPort(opt.CloudCoreIP, "10002")
 	}
-	edgeCoreConfig.Modules.EdgeStream.TunnelServer = net.JoinHostPort(host, strconv.Itoa(constants.DefaultTunnelPort))
+	edgeCoreConfig.Modules.EdgeStream.TunnelServer = net.JoinHostPort(opt.CloudCoreIP, strconv.Itoa(constants.DefaultTunnelPort))
 
 	if len(opt.Labels) > 0 {
 		edgeCoreConfig.Modules.Edged.NodeLabels = setEdgedNodeLabels(opt)

@@ -49,7 +49,7 @@ type InitOptions struct {
 type JoinOptions struct {
 	InitBaseOptions
 	CertPath              string
-	CloudCoreIPPort       string
+	CloudCoreIP           string
 	EdgeNodeName          string
 	RuntimeType           string
 	RemoteRuntimeEndpoint string
@@ -59,6 +59,7 @@ type JoinOptions struct {
 	Labels                []string
 	WithMQTT              bool
 	ImageRepository       string
+	HubType               string
 }
 
 type CheckOptions struct {
